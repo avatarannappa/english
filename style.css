@@ -179,6 +179,10 @@ body.no-zh .zh { display: none; }
 .raz-page-count { font-size: 24px; }
 .raz-reader-words .raz-word { font-size: 27px; }
 .raz-reader .raz-status { margin: 0; }
+.write-word-picker { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; padding: 8px; }
+.write-target { min-height: 56px; font-size: 28px; }
+.write-target.current { background: var(--write); color: white; }
+.write-word-tip { margin: 4px 0 12px; text-align: center; color: var(--muted); font-family: system-ui, sans-serif; font-size: 17px; }
 @media (orientation: portrait) {
   .raz-page-image { max-height: 62vh; }
   .raz-reader { min-height: 550px; }
