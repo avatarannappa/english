@@ -16,7 +16,7 @@ const tmp = join(out, '.tmp');
 
 const sandbox = { window: {} };
 vm.createContext(sandbox);
-for (const f of ['words.js', 'phrases.js']) vm.runInContext(readFileSync(join(root, f), 'utf8'), sandbox, { filename: f });
+for (const f of ['words.js', 'raz.js', 'phrases.js']) vm.runInContext(readFileSync(join(root, f), 'utf8'), sandbox, { filename: f });
 const { normal, slow } = sandbox.window.PHRASES.all();
 
 mkdirSync(tmp, { recursive: true });

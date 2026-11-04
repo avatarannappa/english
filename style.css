@@ -141,6 +141,49 @@ body.no-zh .zh { display: none; }
 .grid.two .choice .emo { font-size: 120px; }
 .grid.two .choice .zh { font-size: 26px; }
 
+/* 阅读入口变多时允许滚动，避免小屏幕把首行推出视口。 */
+#app > .grid.two { margin: 12px auto; }
+
+/* ---------- RAZ 高频词读物 ---------- */
+.raz-intro, .raz-status { font-family: system-ui, sans-serif; font-size: 17px; line-height: 1.6; text-align: center; color: var(--muted); }
+.raz-tabs .btn.on { background: var(--read); color: white; }
+.raz-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 22px; padding-bottom: 10px; }
+.raz-book { position: relative; padding-top: 40px; }
+.raz-number { position: absolute; top: 12px; left: 18px; font-size: 20px; color: #4a9251; }
+.raz-book-title { font-size: 27px; text-align: center; }
+.raz-book-words { font-size: 19px; color: var(--muted); text-align: center; font-weight: normal; }
+.raz-detail { max-width: 900px; width: 100%; margin: auto; text-align: center; }
+.raz-detail-icon { font-size: 100px; line-height: 1.1; }
+.raz-label { font-size: 23px; }
+.raz-word-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; padding: 8px; }
+.raz-word { font-size: 36px; min-width: 72px; min-height: 60px; background: #e2f3dd; }
+.raz-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 28px 0; }
+.raz-actions .btn { min-height: 86px; }
+.raz-parent { font-family: system-ui, sans-serif; padding: 16px; border-top: 2px dashed #e5dcc2; }
+.raz-parent-button { font-size: 17px; margin: 6px; min-height: 48px; }
+.raz-dialog { display: flex; flex-direction: column; gap: 18px; max-width: 560px; font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.5; }
+.raz-dialog a { text-align: center; text-decoration: none; }
+.raz-dialog input { max-width: 100%; font-size: 18px; }
+.raz-word-opt { font-size: clamp(32px, 6vw, 72px); font-weight: bold; }
+.raz-reader { flex: 1; min-height: 480px; display: flex; flex-direction: column; gap: 14px; }
+.raz-page { flex: 1; min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 28px; border-radius: 32px; background: white; padding: 24px; box-shadow: 0 6px 0 rgba(59,51,85,.12); overflow: auto; }
+.raz-page-icon { font-size: clamp(85px, 15vh, 180px); line-height: 1.2; }
+.raz-sentence { text-align: center; font-size: clamp(30px, 4.5vw, 60px); line-height: 1.65; white-space: pre-wrap; }
+.raz-token { color: var(--ink); font: inherit; border: 0; border-radius: 14px; padding: 0 5px; background: none; cursor: pointer; }
+.raz-token.focus { background: #fff0ba; color: #805415; }
+.raz-token:active { background: #e2f3dd; }
+.raz-translation { font-family: system-ui, sans-serif; font-size: 22px; text-align: center; margin: 0; }
+.raz-page-image { width: 100%; max-height: 65vh; object-fit: contain; }
+.raz-controls { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; align-items: center; padding: 8px 0; }
+.raz-controls .btn { min-height: 64px; min-width: 64px; }
+.raz-page-count { font-size: 24px; }
+.raz-reader-words .raz-word { font-size: 27px; }
+.raz-reader .raz-status { margin: 0; }
+@media (orientation: portrait) {
+  .raz-page-image { max-height: 62vh; }
+  .raz-reader { min-height: 550px; }
+}
+
 /* ---------- 卡片 ---------- */
 .stage { flex: 1; display: flex; align-items: center; justify-content: center; gap: 20px; min-height: 0; }
 .card {

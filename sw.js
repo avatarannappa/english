@@ -1,7 +1,7 @@
 // 离线缓存：页面文件网络优先（拿到最新版本），没网时用缓存；
 // 录音文件名带内容哈希、不会变，缓存优先，安装时全部预下载。
 // 改了 FILES 列表时把 VERSION 加 1。
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `little-english-${VERSION}`;
 const AUDIO = 'little-english-audio';
 const FILES = [
@@ -10,7 +10,26 @@ const FILES = [
   'style.css',
   'app.js',
   'words.js',
+  'raz.js',
   'phrases.js',
+  'raz-library.js',
+  'raz-reader.js',
+  'vendor/pdf.mjs',
+  'vendor/pdf.worker.mjs',
+  'vendor/standard_fonts/FoxitFixed.pfb',
+  'vendor/standard_fonts/FoxitFixedBold.pfb',
+  'vendor/standard_fonts/FoxitFixedBoldItalic.pfb',
+  'vendor/standard_fonts/FoxitFixedItalic.pfb',
+  'vendor/standard_fonts/FoxitSerif.pfb',
+  'vendor/standard_fonts/FoxitSerifBold.pfb',
+  'vendor/standard_fonts/FoxitSerifBoldItalic.pfb',
+  'vendor/standard_fonts/FoxitSerifItalic.pfb',
+  'vendor/standard_fonts/FoxitSymbol.pfb',
+  'vendor/standard_fonts/FoxitDingbats.pfb',
+  'vendor/standard_fonts/LiberationSans-Regular.ttf',
+  'vendor/standard_fonts/LiberationSans-Bold.ttf',
+  'vendor/standard_fonts/LiberationSans-Italic.ttf',
+  'vendor/standard_fonts/LiberationSans-BoldItalic.ttf',
   'audio/index.json',
   'manifest.webmanifest',
   'icons/icon-180.png',

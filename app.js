@@ -611,7 +611,7 @@
   // items: [{ key, show, ask, no, yes }]
   // reading: 题目以文字显示、不自动朗读（「看词找图」用）
   const Quiz = cfg => screen(cfg.title, cfg.zh, main => {
-    const rounds = makeRounds(cfg.items, cfg.rounds || 8);
+    const rounds = makeRounds(cfg.targets || cfg.items, cfg.rounds || 8);
     const n = clamp(store.options, 2, cfg.items.length);
     let r = 0;
     let firstTry = true;
@@ -634,6 +634,7 @@
       const it = rounds[r];
       firstTry = true;
       locked = false;
+      replay.disabled = false;
       dots.set(r);
       q.replaceChildren(replay, cfg.reading ? h('span', { class: 'bigword' }, it.yes) : h('span', {}, cfg.hint || '👂 ❓'));
       const others = shuffle(cfg.items.filter(x => x.key !== it.key && x.show !== it.show)).slice(0, n - 1);
@@ -656,6 +657,7 @@
         return;
       }
       locked = true;
+      replay.disabled = true; // 表扬和翻题期间不允许重播打断流程。
       if (firstTry) score++;
       btn.classList.add('right');
       [...opts.children].forEach(b => { if (b !== btn) b.classList.add('dim'); });
@@ -845,6 +847,7 @@
       menuChoice('🔍', 'Find letters', '找字母', () => go(FindLetters())),
       menuChoice('🧩', 'Sound it out', '拼一拼', () => go(Blend)),
       menuChoice('👀', 'Read and find', '看词找图', () => go(ReadWords())),
+      menuChoice('📚', 'RAZ Books', '高频词读物', () => go(RazShelf)),
     ));
   });
 
@@ -1344,6 +1347,11 @@
   }
 
   // ---------- 启动 ----------
+
+  const { shelf: RazShelf } = window.createRazViews({
+    h, screen, go, back, talk, stopTalk, onLeave, store, save, Quiz, Speak,
+    addStar, cheer, overlay, closeOverlay, parentGate, sfx,
+  });
 
   $('#back').addEventListener('click', () => { sfx.tap(); back(); });
   starBtn.addEventListener('click', () => {
