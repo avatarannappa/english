@@ -28,6 +28,8 @@ words.js              词表：主题、字母、拼读词、描红字符集、�
 raz.js                RAZ 公开书目、目标词与原创配套短句
 raz-reader.js         高频词书架、阅读、练习和家长资源入口
 raz-library.js        PDF / 图片导入与 IndexedDB 本机书页储存
+raz-content.js        从校对后的实际书页提取句子和练习词
+raz-ocr.js            扫描书页本机英文识别（Tesseract.js）
 vendor/               PDF.js 4.10.38（Apache-2.0）及标准字体，含许可证
 phrases.js            根据词表生成所有要朗读的句子
 audio/                预录音频（*.m4a + index.json），由 tools/build-audio.mjs 生成
@@ -65,9 +67,15 @@ node tools/build-audio.mjs
 
 **导入正版书页**：在书的详情页点「导入我的 PDF / 图片」→ 家长验证 → 选择一个 PDF，或多张 PNG / JPEG / WebP 图片。每次最多 40 页、30 MB，图片按文件名自然排序（例如 `page-2` 在 `page-10` 前面）。PDF 需使用单页阅读版本；打印折页版请先拆成单页。
 
+文字 PDF 直接提取英文，扫描 PDF / 图片通过本机 Tesseract.js 识别。识别结束后显示逐页缩略图和可编辑的文字，家长可以排除封面／版权页、校对图片标签和句子，再选 1–16 个实际书中词，点 **保存并生成练习**。识别是草稿，复杂插图、手写字体和“图片代替单词”的 Rebus 排版可能出错，需要校对。
+
+保存后 **Book practice** 读本书实际句子并支持单词点读；**Say it → Sentence** 按全部正文句子逐页跟读；**Find words / Write words** 使用所选的实际书中词。每次重新导入或校对生成新版本，练习进度按版本区分，避免旧书完成记录套到新内容。未识别到正文时保留书页供手动校对，并明确显示当前仍使用目录配套练习。
+
+校对界面也可 **导出本机书籍包**（`.razbook.json`），包含书页、校对文字和所选词，可自行通过 AirDrop / 文件同步传到另一台设备，在同一本书的导入入口选择该文件直接恢复。只导出已保存的内容；修改后先保存再导出。原书和书籍包仍需自行保管，不放入公开仓库。
+
 导入内容转为书页图片保存在这台设备浏览器的 IndexedDB 中，**不会上传至 GitHub 或任何服务，也不会跨设备同步**。可在详情页删除本机书页。清除网站数据或删除主屏幕应用可能丢失书页，保留自己的原始文件。普通进度清空不会删除本机导入的书页。
 
-配套短句与高频词都包含离线录音。PDF 可提取的文字通过系统朗读播放，受系统声音可用性影响；扫描 PDF 和图片不做 OCR，可以配合目标词按钮练习。首次联网加载完成离线缓存后，书架、录音、PDF 导入器和已导入书页可离线使用。PDF.js 及其标准字体随项目提供，无需第三方 CDN。
+内置配套短句与高频词包含离线录音。导入书中的新句子、新单词使用系统朗读，受设备的英语声音和静音设置影响。首次联网完成缓存后，书架、已有录音、PDF 导入、英文识别和已导入书页均可离线使用。PDF.js、Tesseract.js 6.0.1、Tesseract Core 6.0.0 和英文模型随项目提供，无需第三方 CDN，也不调用云端 OCR / AI；相关许可证在 `vendor/` 中。
 
 浏览器验证（需安装 Playwright 或复用本机安装；测试使用独立临时浏览器和原创 PDF 样例）：
 
@@ -79,6 +87,9 @@ RAZ_BROWSER=webkit node tools/test-raz.mjs
 # 目标词描写与原有字母描红回归
 node tools/test-raz-write.mjs
 RAZ_BROWSER=webkit node tools/test-raz-write.mjs
+# 实际书页生成与离线 OCR（可用 RAZ_SAMPLE_PACKAGE 指定自己的私有样例包）
+node tools/test-raz-content.mjs
+RAZ_BROWSER=webkit node tools/test-raz-content.mjs
 ```
 
 ## 本地预览

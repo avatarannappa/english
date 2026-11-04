@@ -164,6 +164,13 @@ body.no-zh .zh { display: none; }
 .raz-dialog { display: flex; flex-direction: column; gap: 18px; max-width: 560px; font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.5; }
 .raz-dialog a { text-align: center; text-decoration: none; }
 .raz-dialog input { max-width: 100%; font-size: 18px; }
+.raz-import-dialog { max-width: min(760px, 86vw); }
+.raz-review { display: flex; flex-direction: column; gap: 18px; }
+.raz-review-page { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 14px; align-items: center; }
+.raz-review-page img { width: 120px; max-height: 180px; object-fit: contain; }
+.raz-review textarea { display: block; width: 100%; margin-top: 8px; padding: 10px; font: 18px/1.5 system-ui, sans-serif; -webkit-user-select: text; user-select: text; }
+.raz-vocabulary { display: flex; flex-wrap: wrap; gap: 12px; }
+.raz-vocabulary label { border-radius: 12px; background: #e2f3dd; padding: 8px; }
 .raz-word-opt { font-size: clamp(32px, 6vw, 72px); font-weight: bold; }
 .raz-reader { flex: 1; min-height: 480px; display: flex; flex-direction: column; gap: 14px; }
 .raz-page { flex: 1; min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 28px; border-radius: 32px; background: white; padding: 24px; box-shadow: 0 6px 0 rgba(59,51,85,.12); overflow: auto; }
@@ -173,13 +180,15 @@ body.no-zh .zh { display: none; }
 .raz-token.focus { background: #fff0ba; color: #805415; }
 .raz-token:active { background: #e2f3dd; }
 .raz-translation { font-family: system-ui, sans-serif; font-size: 22px; text-align: center; margin: 0; }
-.raz-page-image { width: 100%; max-height: 65vh; object-fit: contain; }
+.raz-page-image { width: 100%; max-height: 42vh; object-fit: contain; }
+.raz-page:has(.raz-page-image) .raz-sentence { font-size: clamp(24px, 3vw, 38px); line-height: 1.4; }
+.raz-page:has(.raz-sentence) .raz-page-image { max-height: 42vh; }
 .raz-controls { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; align-items: center; padding: 8px 0; }
 .raz-controls .btn { min-height: 64px; min-width: 64px; }
 .raz-page-count { font-size: 24px; }
 .raz-reader-words .raz-word { font-size: 27px; }
 .raz-reader .raz-status { margin: 0; }
-.write-word-picker { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; padding: 8px; }
+.write-word-picker { display: flex; flex-wrap: wrap; justify-content: center; align-content: start; gap: 12px; padding: 8px; max-height: 160px; overflow-y: auto; flex: none; }
 .write-target { min-height: 56px; font-size: 28px; }
 .write-target.current { background: var(--write); color: white; }
 .write-word-tip { margin: 4px 0 12px; text-align: center; color: var(--muted); font-family: system-ui, sans-serif; font-size: 17px; }
@@ -207,6 +216,7 @@ body.no-zh .zh { display: none; }
   padding: 20px;
 }
 .card .emo { font-size: min(230px, 26vh); line-height: 1.1; }
+.card .book-scene { max-width: 100%; width: 230px; max-height: 25vh; object-fit: contain; }
 .card .word { font-size: min(84px, 9vh); font-weight: bold; }
 .card .zh { font-size: 28px; }
 .card .sent { font-size: 26px; color: var(--muted); text-align: center; }

@@ -1,7 +1,7 @@
 // 离线缓存：页面文件网络优先（拿到最新版本），没网时用缓存；
 // 录音文件名带内容哈希、不会变，缓存优先，安装时全部预下载。
 // 改了 FILES 列表时把 VERSION 加 1。
-const VERSION = 'v4';
+const VERSION = 'v5';
 const CACHE = `little-english-${VERSION}`;
 const AUDIO = 'little-english-audio';
 const FILES = [
@@ -14,6 +14,12 @@ const FILES = [
   'phrases.js',
   'raz-library.js',
   'raz-reader.js',
+  'raz-content.js',
+  'raz-ocr.js',
+  'vendor/ocr/tesseract.min.js',
+  'vendor/ocr/worker.min.js',
+  'vendor/ocr/tesseract-core-lstm.wasm.js',
+  'vendor/ocr/eng.traineddata.gz',
   'vendor/pdf.mjs',
   'vendor/pdf.worker.mjs',
   'vendor/standard_fonts/FoxitFixed.pfb',

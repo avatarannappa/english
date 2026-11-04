@@ -440,7 +440,7 @@
     return overlayEl;
   }
   function closeOverlay() {
-    if (overlayEl) overlayEl.remove();
+    if (overlayEl) { overlayEl.dispatchEvent(new Event('overlayclose')); overlayEl.remove(); }
     overlayEl = null;
   }
 
@@ -700,13 +700,15 @@
     let starting = false; // 等麦克风权限期间，忽略重复点击
     let clip = null;
     let autoStop = 0;
+    const imageUrls = new Map();
     const rewarded = new Set();
 
     const emo = h('div', { class: 'emo' });
     const word = h('div', { class: 'word' });
     const zh = h('div', { class: 'zh' });
     const sent = h('div', { class: 'sent' });
-    const model = () => (mode === 'word' ? words[i].w : words[i].say);
+    const items = () => mode === 'sentence' && t.sentences?.length ? t.sentences : words;
+    const model = () => (mode === 'word' ? items()[i].w : items()[i].say);
     const card = h('button', { class: 'card', onclick: () => { bump(emo); talk(model()); } }, emo, word, zh, sent);
     const prev = h('button', { class: 'btn big', onclick: () => move(-1) }, '⬅️');
     const next = h('button', { class: 'btn big', onclick: () => move(1) }, '➡️');
@@ -723,22 +725,28 @@
 
     function setMode(m, btn) {
       if (rec) return;
+      if (t.sentences && mode !== m) i = 0;
       mode = m;
       [...seg.children].forEach(b => b.classList.toggle('on', b === btn));
       draw();
     }
 
     function draw() {
-      const x = words[i];
-      emo.textContent = x.e;
+      const list = items();
+      const x = list[i];
+      if (x.image) {
+        if (!imageUrls.has(x.image)) imageUrls.set(x.image, URL.createObjectURL(x.image));
+        emo.replaceChildren(h('img', { class: 'book-scene', src: imageUrls.get(x.image), alt: 'Book scene' }));
+      } else emo.textContent = x.e;
       word.textContent = mode === 'word' ? x.w : x.say;
       word.style.fontSize = mode === 'word' ? '' : 'min(48px, 6vh)';
       zh.textContent = x.zh;
       sent.textContent = '';
       prev.disabled = i === 0;
-      next.disabled = i === words.length - 1;
+      next.disabled = i === list.length - 1;
       clip = null;
       mine.disabled = true;
+      if (dots.children.length !== list.length) dots.replaceChildren(...Array.from({ length: list.length }, () => h('i')));
       dots.set(i);
       bump(card);
       tip.textContent = recorder.supported ? '先点 🔊 听，再点 🎤 跟着说，说完再点一下 🎤' : '';
@@ -747,7 +755,7 @@
 
     async function move(d) {
       if (rec) await stopRec();
-      const j = clamp(i + d, 0, words.length - 1);
+      const j = clamp(i + d, 0, items().length - 1);
       if (j === i) return;
       i = j;
       sfx.tap();
@@ -823,6 +831,7 @@
     let alive = true;
     onLeave(() => {
       alive = false;
+      imageUrls.forEach(url => URL.revokeObjectURL(url));
       clearTimeout(autoStop);
       if (rec) rec.stop().catch(() => {});
       rec = null;
@@ -1155,7 +1164,7 @@
           if (far[j]) outside++;
         }
       }
-      const letterCoverage = groups.map(group => group.length
+      const letterCoverage = groups.filter((_, j) => /[A-Za-z0-9]/.test(ch()[j])).map(group => group.length
         ? group.filter(j => a[j * 4 + 3] > 40).length / group.length : 0);
       const coverage = wordMode ? Math.min(...letterCoverage) : core.length ? covered / core.length : 0;
       const messy = inked ? outside / inked : 0;

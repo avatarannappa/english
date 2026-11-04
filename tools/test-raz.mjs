@@ -116,7 +116,7 @@ try {
   assert.equal(await page.locator('a[href*="raz-plus"]').count(), 0);
   await gate();
   assert.equal(await page.locator('a[href*="raz-plus"]').getAttribute('href'), 'https://www.raz-plus.com/book.php?id=381');
-  await page.locator('.raz-dialog button').click();
+  await page.locator('.raz-dialog button').filter({ hasText: /^返回$/ }).click();
 
   // 导入 PDF：本机保存文字和图片；损坏的输入不能覆盖原书。
   await page.getByRole('button', { name: '导入我的 PDF / 图片' }).click();
@@ -132,7 +132,7 @@ try {
   await page.locator('input[type=file]').setInputFiles({ name: 'broken.pdf', mimeType: 'application/pdf', buffer: Buffer.from('invalid PDF') });
   await waitText('.overlay [role=status]', '导入失败');
   assert.equal(await page.evaluate(async () => (await RAZ_LIBRARY.get('raz-a4')).pages.length), 2);
-  await page.locator('.raz-dialog button').click();
+  await page.locator('.raz-dialog button').filter({ hasText: /^返回$/ }).click();
   await page.locator('[data-action="local-read"]').click();
   await page.locator('[data-action="listen"]').click();
   assert.equal((await page.evaluate(() => window.__said)).at(-1), 'I can see a puppy.');
@@ -168,7 +168,7 @@ try {
   });
   await page.locator('input[type=file]').setInputFiles(['page-10.png', 'page-2.png'].map((name, i) => ({ name, mimeType: 'image/png', buffer: Buffer.from(pngs[i], 'base64') })));
   await waitText('.overlay [role=status]', '已保存 2 页');
-  await page.locator('.raz-dialog button').click();
+  await page.locator('.raz-dialog button').filter({ hasText: /^返回$/ }).click();
   await page.locator('[data-action="local-read"]').click();
   const firstPixel = await page.locator('.raz-page-image').evaluate(async img => {
     await img.decode();
