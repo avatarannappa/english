@@ -13,15 +13,16 @@
 
     function lessonFor(book, local) {
       if (!local?.analysis?.words.length || !local.analysis.sentences.length) {
+        if (local) return { book: { ...book, words: [] }, words: [], pages: [], imported: false, unprepared: true };
         return { book, words: wordsFor(book), pages: practicePages(book), imported: false };
       }
       const meta = { ...book, id: `${book.id}:content-${local.revision}`, words: local.analysis.words.map(x => x.w) };
       const words = local.analysis.words.map(x => ({
         w: x.w, e: book.icon, image: local.pages[x.pageIndex].image,
-        zh: examples[x.w]?.zh || '书中单词', say: x.sentence,
+        zh: examples[x.w]?.zh || '书中单词', say: x.sentence, pageNumber: x.pageIndex + 1,
       }));
       return { book: meta, words, imported: true,
-        pages: local.analysis.sentences.map(s => ({ image: local.pages[s.pageIndex].image, text: s.text })),
+        pages: local.analysis.sentences.map(s => ({ image: local.pages[s.pageIndex].image, text: s.text, pageNumber: s.pageIndex + 1 })),
       };
     }
 
@@ -53,6 +54,7 @@
       let alive = true;
       let localBook = null;
       let lesson = lessonFor(book);
+      let siteAvailable = false;
       onLeave(() => { alive = false; stopTalk(); });
       const status = h('p', { class: 'raz-status', role: 'status' }, '正在查看本机书页…');
       const localButton = button('📖 Read my book', () => {}, { hidden: true, 'data-action': 'local-read' });
@@ -74,16 +76,18 @@
         localButton.hidden = !local;
         removeButton.hidden = !local || local.origin === 'site';
         editButton.hidden = !local;
+        recognizeButton.hidden = !lesson.unprepared;
+        restoreButton.hidden = !local || local.origin === 'site' || !siteAvailable;
         localButton.onclick = local ? () => go(reader(book, local.pages, 'local')) : null;
         status.textContent = local ? `${local.origin === 'site' ? '网站内置，已缓存' : '已保存'} ${local.pages.length} 页，已选 ${local.analysis.words.length} 个词练习。${local.reviewed ? '' : '请先校对识别结果。'}` : '还没有本机书页，可以由家长导入。';
         practiceButton.textContent = lesson.imported ? '📚 Book practice' : '📚 Word practice';
         writeButton.textContent = `✏️ Write words${store.done[`raz:write:${lesson.book.id}`] ? ' ✓' : ''}`;
         hint.textContent = lesson.imported
-          ? '当前练习使用已导入书页的实际句子和所选词。可以通过家长校对修改。'
-          : local ? '尚未识别到可练习的文字，当前使用目录配套短句；校对书页文字后可按书生成。'
+          ? `本书 PDF：${local.analysis.sentences.length} 句正文，${local.analysis.words.length} 个练习词；各入口显示对应书页。`
+          : local ? '这份本机 PDF 尚未识别出正文。请识别／校对文字，或使用网站已校对版本后开始练习。'
             : 'Word practice 是自编配套短句；导入书页后会按实际内容生成练习。';
         renderWords();
-        loadingButtons.forEach(b => { b.disabled = false; });
+        loadingButtons.forEach(b => { b.disabled = !!lesson.unprepared; });
       }
       const words = h('div', { class: 'raz-word-list' });
       const renderWords = () => words.replaceChildren(...lesson.book.words.map(w => button(w, () => talk(w), {
@@ -91,17 +95,36 @@
       })));
       const practiceButton = button('📚 Word practice', () => go(reader(lesson.book, lesson.pages, 'practice')), { 'data-action': 'practice' });
       const writeButton = button('✏️ Write words', () => go(Trace(lesson.book.words, 0, {
-        wordMode: true, progressKey: `raz:write:${lesson.book.id}`, label: `${book.set}${book.number}`,
+        wordMode: true, progressKey: `raz:write:${lesson.book.id}`, label: `${book.set}${book.number}`, contexts: lesson.imported ? lesson.words : undefined,
       })), { 'data-action': 'write' });
       const hint = h('p', { class: 'raz-intro' });
       const editButton = button('校对文字和练习词', () => parentGate(() => reviewDialog(book, localBook, updateLocal)), { hidden: true, class: 'btn raz-parent-button' });
-      const quizButton = button('🎯 Find words', () => go(wordQuiz(lesson.book)), { 'data-action': 'quiz' });
+      const quizButton = button('🎯 Find words', () => go(wordQuiz(lesson.book, lesson.imported ? lesson.words : [], localBook?.analysis.vocabulary.map(x => x.w) || [])), { 'data-action': 'quiz' });
       const speakButton = button('🎤 Say it', () => go(Speak({ name: book.title, zh: lesson.imported ? '本书内容' : '高频词', words: lesson.words,
-        sentences: lesson.imported ? lesson.pages.map(p => ({ w: '', e: book.icon, image: p.image, zh: '本书原句', say: p.text })) : undefined,
+        initialMode: lesson.imported ? 'sentence' : 'word',
+        sentences: lesson.imported ? lesson.pages.map(p => ({ w: '', e: book.icon, image: p.image, zh: '本书原句', say: p.text, pageNumber: p.pageNumber })) : undefined,
       })), { 'data-action': 'speak' });
-      const loadingButtons = [practiceButton, quizButton, speakButton, writeButton];
+      const listenButton = button('👂 Listen to book', () => go(reader(lesson.book, lesson.pages, 'listen')), { 'data-action': 'listen-book' });
+      const restoreButton = button('使用网站已校对版本', () => parentGate(async () => {
+        if (!confirm('使用网站完整校对版本？之前的本机版本会保留为备份。')) return;
+        try { updateLocal(await library.restoreSite(book.id)); backupButton.hidden = false; }
+        catch (err) { status.textContent = err.message; }
+      }), { class: 'btn raz-parent-button', hidden: true, 'data-action': 'restore-site' });
+      const backupButton = button('恢复之前的本机版本', () => parentGate(async () => {
+        try { updateLocal(await library.restoreBackup(book.id)); }
+        catch (err) { status.textContent = err.message; }
+      }), { class: 'btn raz-parent-button', hidden: true });
+      const recognizeButton = button('识别这本 PDF 的文字', () => parentGate(async () => {
+        recognizeButton.disabled = true;
+        try {
+          const local = await library.recognizeStored(book.id, text => { if (alive) status.textContent = text; });
+          if (alive) { updateLocal(local); reviewDialog(book, local, updateLocal); }
+        } catch (err) { if (alive) status.textContent = err.message; }
+        finally { recognizeButton.disabled = false; }
+      }), { class: 'btn raz-parent-button', hidden: true });
+      const loadingButtons = [practiceButton, quizButton, speakButton, writeButton, listenButton];
       const actions = h('div', { class: 'raz-actions' },
-        practiceButton,
+        listenButton, practiceButton,
         quizButton, speakButton,
         writeButton,
         localButton,
@@ -111,12 +134,15 @@
       status.textContent = '正在查看本机书页…';
       library.open(book.id, text => { if (alive) status.textContent = text; }).then(updateLocal)
         .catch(err => { if (alive) { updateLocal(null); status.textContent = err.message; } });
+      library.siteBooks().then(index => { if (alive) { siteAvailable = !!index[book.id]; if (localBook) updateLocal(localBook); } });
+      library.get(`${book.id}:backup`).then(backup => { if (alive) backupButton.hidden = !backup; });
       main.append(h('div', { class: 'raz-detail' },
         h('div', { class: 'raz-detail-icon' }, book.icon),
         h('p', { class: 'raz-label' }, book.review ? 'Review words · 复习词' : 'Focus words · 目标词'), words, actions,
         hint,
         h('div', { class: 'raz-parent' }, status,
           editButton,
+          recognizeButton, restoreButton, backupButton,
           button('导入我的 PDF / 图片', () => parentGate(() => importDialog(book, updateLocal)), { class: 'btn raz-parent-button' }),
           button('RAZ 官方书页 ↗', () => parentGate(() => officialDialog(book)), { class: 'btn raz-parent-button' }),
           removeButton,
@@ -236,17 +262,31 @@
       layer.addEventListener('overlayclose', panel.cleanup);
     }
 
-    function wordQuiz(book) {
+    function wordQuiz(book, contexts = [], vocabulary = []) {
       // a / the / on 等只有一个目标词的书，也需要至少两个不同的选项。
-      const distractors = allWords.filter(w => !book.words.includes(w)).slice(0, 3);
+      const pool = vocabulary.length ? vocabulary : allWords;
+      const distractors = book.words.length >= 3 ? [] : pool.filter(w => !book.words.includes(w)).slice(0, 3 - book.words.length);
       const item = w => ({ key: w, show: w, ask: P.razFind(w), no: P.razNot(w), yes: w });
+      const urls = new Map();
       return Quiz({ title: 'Find words', zh: `${book.set}${book.number} · 找词`,
         items: [...book.words, ...distractors].map(item), targets: book.words.map(item),
         rounds: Math.min(8, Math.max(3, book.words.length)), optClass: 'raz-word-opt',
+        optionStyle: it => `font-size:${Math.min(56, Math.floor(280 / it.key.length))}px`,
+        contextFor: contexts.length ? it => {
+          const c = contexts.find(x => x.w === it.key);
+          if (!urls.has(c.image)) urls.set(c.image, URL.createObjectURL(c.image));
+          return h('div', { class: 'book-exercise-context' },
+            h('button', { class: 'book-preview', onclick: () => overlay(
+              h('img', { class: 'pdf-preview', src: urls.get(c.image), alt: `PDF page ${c.pageNumber}` }),
+              h('p', {}, c.say), button('返回', closeOverlay),
+            ) }, h('img', { src: urls.get(c.image), alt: `PDF page ${c.pageNumber}` })),
+            h('div', {}, h('span', { class: 'pdf-source' }, `PDF · ${c.pageNumber}`), h('p', {}, c.say)));
+        } : undefined,
+        cleanup: () => { urls.forEach(url => URL.revokeObjectURL(url)); urls.clear(); },
       });
     }
 
-    const reader = (book, pages, mode) => screen(book.title, mode === 'local' ? '我的书页' : book.id.includes(':content-') ? '按书页练习' : '自编配套短句', main => {
+    const reader = (book, pages, mode) => screen(book.title, mode === 'listen' ? '听本书' : mode === 'local' ? '我的书页' : book.id.includes(':content-') ? '按书页练习' : '自编配套短句', main => {
       const key = `${mode}:${book.id}`;
       store.razProgress ||= {};
       const prior = store.razProgress[key] || {};
@@ -284,6 +324,7 @@
           page.append(h('div', { class: 'raz-page-icon' }, p.icon));
         }
         if (p.text) {
+          if (p.pageNumber) page.append(h('span', { class: 'pdf-source' }, `PDF · ${p.pageNumber}`));
           const sentence = h('div', { class: 'raz-sentence' });
           // 只分词用于点读；原始空格和标点保留，目标词按完整单词高亮。
           for (const token of p.text.split(/([A-Za-z]+(?:[-'][A-Za-z]+)?)/)) {
@@ -357,6 +398,7 @@
         h('div', { class: 'raz-controls' }, prev, count, next, listen, auto, finish), words, tip,
       ));
       draw();
+      if (mode === 'listen') readAll();
     });
 
     return { shelf };

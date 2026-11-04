@@ -537,8 +537,11 @@
 
   // ---------- 听 ----------
 
+  const razShortcut = () => h('div', { class: 'raz-shortcut' },
+    menuChoice('📚', 'RAZ Books', '按 PDF 听说读写', () => go(RazShelf)));
+
   const ListenThemes = screen('Listen', '听', main => {
-    main.append(themeGrid(t => go(ListenModes(t))));
+    main.append(razShortcut(), themeGrid(t => go(ListenModes(t))));
   });
 
   const ListenModes = t => screen(t.name, t.zh, main => {
@@ -618,12 +621,13 @@
     let score = 0;
     let locked = false;
     let alive = true;
-    onLeave(() => { alive = false; });
+    onLeave(() => { alive = false; if (cfg.cleanup) cfg.cleanup(); });
 
     const replay = h('button', { class: 'btn big', onclick: () => ask() }, '🔊');
     const q = h('div', { class: 'question' });
     const opts = h('div', { class: 'options' });
     const dots = dotsBar(rounds.length);
+    const bookContext = h('div');
 
     const ask = () => {
       const it = rounds[r];
@@ -637,9 +641,10 @@
       replay.disabled = false;
       dots.set(r);
       q.replaceChildren(replay, cfg.reading ? h('span', { class: 'bigword' }, it.yes) : h('span', {}, cfg.hint || '👂 ❓'));
+      if (cfg.contextFor) bookContext.replaceChildren(cfg.contextFor(it));
       const others = shuffle(cfg.items.filter(x => x.key !== it.key && x.show !== it.show)).slice(0, n - 1);
       opts.replaceChildren(...shuffle([it, ...others]).map(c =>
-        h('button', { class: `opt ${cfg.optClass || ''}`, onclick: e => answer(e.currentTarget, c) }, c.show)));
+        h('button', { class: `opt ${cfg.optClass || ''}`, style: cfg.optionStyle?.(c), onclick: e => answer(e.currentTarget, c) }, c.show)));
       if (cfg.reading) talk(r === 0 ? 'Read and find.' : '');
       else ask();
     }
@@ -682,20 +687,20 @@
       );
     }
 
-    main.append(q, opts, dots);
+    main.append(q, bookContext, opts, dots);
     round();
   });
 
   // ---------- 说 ----------
 
   const SpeakThemes = screen('Speak', '说', main => {
-    main.append(themeGrid(t => go(Speak(t))));
+    main.append(razShortcut(), themeGrid(t => go(Speak(t))));
   });
 
   const Speak = t => screen(t.name, `${t.zh} · 跟我说`, main => {
     const words = t.words;
     let i = 0;
-    let mode = 'word';
+    let mode = t.initialMode || 'word';
     let rec = null;
     let starting = false; // 等麦克风权限期间，忽略重复点击
     let clip = null;
@@ -719,8 +724,8 @@
     const dots = dotsBar(words.length);
 
     const seg = h('div', { class: 'seg' },
-      h('button', { class: 'on', onclick: e => setMode('word', e.currentTarget) }, 'Word', h('span', { class: 'zh' }, ' 单词')),
-      h('button', { onclick: e => setMode('sentence', e.currentTarget) }, 'Sentence', h('span', { class: 'zh' }, ' 句子')),
+      h('button', { class: mode === 'word' ? 'on' : '', onclick: e => setMode('word', e.currentTarget) }, 'Word', h('span', { class: 'zh' }, ' 单词')),
+      h('button', { class: mode === 'sentence' ? 'on' : '', onclick: e => setMode('sentence', e.currentTarget) }, 'Sentence', h('span', { class: 'zh' }, ' 句子')),
     );
 
     function setMode(m, btn) {
@@ -741,7 +746,7 @@
       word.textContent = mode === 'word' ? x.w : x.say;
       word.style.fontSize = mode === 'word' ? '' : 'min(48px, 6vh)';
       zh.textContent = x.zh;
-      sent.textContent = '';
+      sent.textContent = x.pageNumber ? `PDF · ${x.pageNumber}` : '';
       prev.disabled = i === 0;
       next.disabled = i === list.length - 1;
       clip = null;
@@ -979,7 +984,7 @@
           ch, h('span', { class: 'zh', style: 'font-size:22px' }, store.done[`w:${ch}`] ? '⭐' : '·'))));
     };
     render();
-    main.append(tabs, grid);
+    main.append(razShortcut(), tabs, grid);
   });
 
   const spokenChar = P.char;
@@ -1013,6 +1018,9 @@
     const ch = () => chars[i];
     const doneKey = word => wordMode ? `${options.progressKey}:${word}` : `w:${word}`;
     const picker = h('div', { class: 'write-word-picker' });
+    const bookContext = h('div');
+    const contextUrls = new Map();
+    let contextWord = null;
     const instruction = h('p', { class: 'write-word-tip' }, '沿虚线描完整单词，每个字母都要描。');
     const intro = () => wordMode ? ch() : traceIntro(ch());
     const dpr = () => Math.min(window.devicePixelRatio || 1, 3);
@@ -1267,6 +1275,19 @@
         'aria-pressed': i === j ? 'true' : 'false',
         onclick: () => { if (j !== i) { i = j; sfx.tap(); draw(); } },
       }, word, store.done[doneKey(word)] ? ' ✓' : '')));
+      if (options.contexts && contextWord !== ch()) {
+        contextWord = ch();
+        const c = options.contexts.find(x => x.w === ch());
+        if (c) {
+          if (!contextUrls.has(c.image)) contextUrls.set(c.image, URL.createObjectURL(c.image));
+          bookContext.replaceChildren(h('div', { class: 'book-exercise-context write-book-context' },
+            h('button', { class: 'book-preview', onclick: () => overlay(
+              h('img', { class: 'pdf-preview', src: contextUrls.get(c.image), alt: `PDF page ${c.pageNumber}` }),
+              h('p', {}, c.say), h('button', { class: 'btn', onclick: closeOverlay }, '返回'),
+            ) }, h('img', { src: contextUrls.get(c.image), alt: `PDF page ${c.pageNumber}` })),
+            h('div', {}, h('span', { class: 'pdf-source' }, `PDF · ${c.pageNumber}`), h('p', {}, c.say))));
+        }
+      }
     }
 
     function move(d) {
@@ -1283,9 +1304,9 @@
       resizeTimer = setTimeout(() => layout(), 120);
     });
     ro.observe(paper);
-    onLeave(() => { ro.disconnect(); clearTimeout(resizeTimer); });
+    onLeave(() => { ro.disconnect(); clearTimeout(resizeTimer); contextUrls.forEach(url => URL.revokeObjectURL(url)); });
 
-    if (wordMode) main.append(picker, instruction);
+    if (wordMode) main.append(picker, bookContext, instruction);
     main.append(paper, h('div', { class: 'toolbar' },
       prev,
       h('button', { class: 'btn big', onclick: () => talk(wordMode ? ch() : spokenChar(ch())), 'aria-label': 'Listen to writing target' }, '🔊'),

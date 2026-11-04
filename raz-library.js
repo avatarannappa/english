@@ -135,6 +135,26 @@
 
   window.RAZ_LIBRARY = {
     siteBooks: () => siteIndex,
+    async restoreSite(id) {
+      const entry = (await siteIndex)[id];
+      if (!entry || !/^raz-[a-z]\d+-[0-9a-f]+\.razbook\.json$/.test(entry.file)) throw new Error('网站尚未提供这本书的校对版本。');
+      const response = await fetch(`books/${entry.file}`);
+      if (!response.ok) throw new Error('内置版本加载失败，请联网后重试。');
+      const file = new File([await response.blob()], entry.file, { type: 'application/json' });
+      const previous = await this.get(id);
+      if (previous && previous.origin !== 'site') await saveBook({ ...previous, id: `${id}:backup` });
+      return this.import(id, [file], () => {}, entry.version, true);
+    },
+    async restoreBackup(id) {
+      const backup = await this.get(`${id}:backup`);
+      if (!backup) throw new Error('没有之前的本机版本。');
+      return saveBook({ ...backup, id, origin: 'personal' });
+    },
+    async recognizeStored(id, progress = () => {}) {
+      const book = await this.get(id);
+      if (!book) throw new Error('本机没有这本书。');
+      return this.import(id, book.pages.map((p, i) => new File([p.image], `page-${i + 1}.png`, { type: 'image/png' })), progress);
+    },
     async open(id, progress = () => {}) {
       if (opening.has(id)) return opening.get(id);
       const task = (async () => {
@@ -163,7 +183,7 @@
       const restored = { ...book, pages: book.pages.map(p => ({
         ...p, image: p.image instanceof Blob ? p.image : new Blob([p.image], { type: 'image/png' }),
       })) };
-      restored.analysis ||= RAZ_CONTENT.analyze(restored.pages, RAZ_BOOKS.find(b => b.id === id)?.words || []);
+      if (!restored.analysis?.sentences?.length) restored.analysis = RAZ_CONTENT.analyze(restored.pages, RAZ_BOOKS.find(b => b.id === id)?.words || []);
       restored.revision ||= String(restored.importedAt);
       return restored;
     },
@@ -197,7 +217,7 @@
       if (analysis.words.length !== new Set(selectedWords).size) throw new Error('练习词与最新文字不一致，请更新词表后再保存。');
       return saveBook({ ...book, pages, analysis, revision: revision(), reviewed: true, origin: 'personal' });
     },
-    async import(id, files, progress = () => {}, siteVersion) {
+    async import(id, files, progress = () => {}, siteVersion, replacePersonal = false) {
       const list = [...files];
       if (!list.length) throw new Error('请选择 PDF 或图片书页。');
       if (list.reduce((sum, f) => sum + f.size, 0) > MAX_BYTES) throw new Error('一次最多导入 30 MB，请缩小文件后再试。');
@@ -220,7 +240,7 @@
         if (!analysis.words.length || analysis.words.length > 16) throw new Error('书籍包中需有 1–16 个有效练习词。');
         return saveBook({ id, pages, analysis, revision: siteVersion ? `site-${siteVersion}` : revision(),
           importedAt: Date.now(), reviewed: !!bundle.reviewed, origin: siteVersion ? 'site' : 'personal', siteVersion,
-        }, !!siteVersion);
+        }, !!siteVersion && !replacePersonal);
       }
       const ocr = createRazOCR();
       const meta = RAZ_BOOKS.find(b => b.id === id);

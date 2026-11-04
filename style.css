@@ -159,6 +159,18 @@ body.no-zh .zh { display: none; }
 .raz-word { font-size: 36px; min-width: 72px; min-height: 60px; background: #e2f3dd; }
 .raz-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 28px 0; }
 .raz-actions .btn { min-height: 86px; }
+.raz-shortcut { margin: 0 auto 18px; width: 100%; max-width: 900px; flex: none; }
+.raz-shortcut .choice { flex-direction: row; gap: 14px; padding: 14px; font-size: 26px; }
+.raz-shortcut .emo { font-size: 42px; }
+.pdf-source { color: #4a9251; font-size: 18px; font-family: system-ui, sans-serif; }
+.book-exercise-context { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 12px; background: white; border-radius: 22px; margin: 10px auto; max-width: 780px; }
+.book-exercise-context img { width: 95px; height: 140px; object-fit: contain; }
+.book-exercise-context p { font-size: 25px; margin: 8px 0; }
+.write-book-context { margin: 4px auto; }
+.write-book-context img { width: 70px; height: 85px; }
+.write-book-context p { font-size: 22px; }
+.book-preview { background: none; padding: 0; border: 0; cursor: pointer; flex: none; }
+.pdf-preview { max-width: 85vw; max-height: 65vh; object-fit: contain; }
 .raz-parent { font-family: system-ui, sans-serif; padding: 16px; border-top: 2px dashed #e5dcc2; }
 .raz-parent-button { font-size: 17px; margin: 6px; min-height: 48px; }
 .raz-dialog { display: flex; flex-direction: column; gap: 18px; max-width: 560px; font-family: system-ui, sans-serif; font-size: 18px; line-height: 1.5; }
@@ -171,7 +183,7 @@ body.no-zh .zh { display: none; }
 .raz-review textarea { display: block; width: 100%; margin-top: 8px; padding: 10px; font: 18px/1.5 system-ui, sans-serif; -webkit-user-select: text; user-select: text; }
 .raz-vocabulary { display: flex; flex-wrap: wrap; gap: 12px; }
 .raz-vocabulary label { border-radius: 12px; background: #e2f3dd; padding: 8px; }
-.raz-word-opt { font-size: clamp(32px, 6vw, 72px); font-weight: bold; }
+.opt.raz-word-opt { font-size: clamp(28px, 6vw, 72px); font-weight: bold; }
 .raz-reader { flex: 1; min-height: 480px; display: flex; flex-direction: column; gap: 14px; }
 .raz-page { flex: 1; min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 28px; border-radius: 32px; background: white; padding: 24px; box-shadow: 0 6px 0 rgba(59,51,85,.12); overflow: auto; }
 .raz-page-icon { font-size: clamp(85px, 15vh, 180px); line-height: 1.2; }

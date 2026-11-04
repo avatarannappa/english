@@ -1,7 +1,7 @@
 // 离线缓存：页面文件网络优先（拿到最新版本），没网时用缓存；
 // 录音文件名带内容哈希、不会变，缓存优先，安装时全部预下载。
 // 改了 FILES 列表时把 VERSION 加 1。
-const VERSION = 'v6';
+const VERSION = 'v7';
 const CACHE = `little-english-${VERSION}`;
 const AUDIO = 'little-english-audio';
 const FILES = [
