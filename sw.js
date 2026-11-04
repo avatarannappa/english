@@ -1,7 +1,7 @@
 // 离线缓存：页面文件网络优先（拿到最新版本），没网时用缓存；
 // 录音文件名带内容哈希、不会变，缓存优先，安装时全部预下载。
 // 改了 FILES 列表时把 VERSION 加 1。
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = `little-english-${VERSION}`;
 const AUDIO = 'little-english-audio';
 const FILES = [
@@ -37,11 +37,18 @@ const FILES = [
   'vendor/standard_fonts/LiberationSans-Italic.ttf',
   'vendor/standard_fonts/LiberationSans-BoldItalic.ttf',
   'audio/index.json',
+  'books/index.json',
   'manifest.webmanifest',
   'icons/icon-180.png',
   'icons/icon-192.png',
   'icons/icon-512.png',
 ];
+
+async function cacheBooks() {
+  const cache = await caches.open(CACHE);
+  const index = await (await cache.match('books/index.json')).json();
+  await Promise.all(Object.values(index).map(entry => cache.add(`books/${entry.file}`)));
+}
 
 async function cacheAudio() {
   const index = await (await caches.open(CACHE)).match('audio/index.json').then(r => r && r.json());
@@ -57,7 +64,7 @@ async function cacheAudio() {
 }
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(cacheAudio).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(cacheAudio).then(cacheBooks).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {

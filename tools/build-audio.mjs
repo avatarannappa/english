@@ -17,7 +17,28 @@ const tmp = join(out, '.tmp');
 const sandbox = { window: {} };
 vm.createContext(sandbox);
 for (const f of ['words.js', 'raz.js', 'phrases.js']) vm.runInContext(readFileSync(join(root, f), 'utf8'), sandbox, { filename: f });
-const { normal, slow } = sandbox.window.PHRASES.all();
+const phrases = sandbox.window.PHRASES.all();
+const normalSet = new Set(phrases.normal);
+// 随站点发布的书籍也生成录音；避免书中原句只能依赖浏览器系统朗读。
+const catalogPath = join(root, 'books', 'index.json');
+if (existsSync(catalogPath)) {
+  const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'));
+  for (const [id, entry] of Object.entries(catalog)) {
+    if (!/^raz-[a-z]\d+-[0-9a-f]+\.razbook\.json$/.test(entry.file)) throw new Error('Invalid published book filename');
+    const book = JSON.parse(readFileSync(join(root, 'books', entry.file), 'utf8'));
+    if (book.bookId !== id) throw new Error('Published book ID mismatch');
+    for (const w of book.selectedWords) {
+      [w, sandbox.window.PHRASES.razFind(w), sandbox.window.PHRASES.razNot(w)].forEach(text => normalSet.add(text));
+    }
+    for (const p of book.pages) {
+      if (!p.include || !p.text) continue;
+      normalSet.add(p.text);
+      for (const word of p.text.match(/[A-Za-z]+(?:[-'][A-Za-z]+)?/g) || []) normalSet.add(word);
+    }
+  }
+}
+const normal = [...normalSet];
+const slow = phrases.slow;
 
 mkdirSync(tmp, { recursive: true });
 const index = { voice: VOICE, normal: {}, slow: {} };

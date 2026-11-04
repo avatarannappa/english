@@ -26,6 +26,9 @@
     }
 
     const shelf = screen('RAZ Books', '高频词读物', main => {
+      let alive = true;
+      let published = {};
+      onLeave(() => { alive = false; });
       const tabs = h('div', { class: 'tabs raz-tabs' });
       const grid = h('div', { class: 'raz-shelf' });
       const render = () => {
@@ -36,13 +39,14 @@
           const done = store.done[`raz:practice:${b.id}`] || store.done[`raz:local:${b.id}`] || store.done[`raz:write:${b.id}`];
           return h('button', { class: 'choice raz-book', 'data-book': b.id, onclick: () => {
             sfx.tap(); stopTalk(); go(detail(b));
-          } }, h('span', { class: 'raz-number' }, `${b.set}${b.number}${done ? ' ⭐' : ''}`),
+          } }, h('span', { class: 'raz-number' }, `${b.set}${b.number}${done ? ' ⭐' : ''}${published[b.id] ? ' 📖' : ''}`),
           h('span', { class: 'emo' }, b.icon), h('span', { class: 'raz-book-title' }, b.title),
           h('span', { class: 'raz-book-words' }, b.words.join(' · ')));
         }));
       };
       main.append(tabs, h('p', { class: 'raz-intro' }, '从 Set A 开始，每次一本：认词 → 读短句 → 找词 → 跟读 → 写词。'), grid);
       render();
+      library.siteBooks().then(index => { if (alive) { published = index; render(); } });
     });
 
     const detail = book => screen(book.title, `${book.set}${book.number} · 高频词`, main => {
@@ -53,13 +57,13 @@
       const status = h('p', { class: 'raz-status', role: 'status' }, '正在查看本机书页…');
       const localButton = button('📖 Read my book', () => {}, { hidden: true, 'data-action': 'local-read' });
       const removeButton = button('删除本机书页', () => parentGate(async () => {
-        if (!confirm('删除这本书在当前浏览器中保存的书页？')) return;
+        if (!confirm('删除这本书在当前浏览器中保存的书页？如果网站提供内置版本，将恢复内置版本。')) return;
         try {
           await library.remove(book.id);
           delete store.done[`raz:local:${book.id}`];
           if (store.razProgress) delete store.razProgress[`local:${book.id}`];
           save();
-          updateLocal(null);
+          updateLocal(await library.open(book.id));
         } catch (err) { if (alive) status.textContent = err.message; }
       }), { hidden: true, class: 'btn raz-parent-button' });
 
@@ -67,10 +71,11 @@
         if (!alive) return;
         localBook = local;
         lesson = lessonFor(book, local);
-        localButton.hidden = removeButton.hidden = !local;
+        localButton.hidden = !local;
+        removeButton.hidden = !local || local.origin === 'site';
         editButton.hidden = !local;
         localButton.onclick = local ? () => go(reader(book, local.pages, 'local')) : null;
-        status.textContent = local ? `已保存 ${local.pages.length} 页，识别出 ${local.analysis.vocabulary.length} 个词；已选 ${local.analysis.words.length} 个词练习。${local.reviewed ? '' : '请先校对识别结果。'}` : '还没有本机书页，可以由家长导入。';
+        status.textContent = local ? `${local.origin === 'site' ? '网站内置，已缓存' : '已保存'} ${local.pages.length} 页，已选 ${local.analysis.words.length} 个词练习。${local.reviewed ? '' : '请先校对识别结果。'}` : '还没有本机书页，可以由家长导入。';
         practiceButton.textContent = lesson.imported ? '📚 Book practice' : '📚 Word practice';
         writeButton.textContent = `✏️ Write words${store.done[`raz:write:${lesson.book.id}`] ? ' ✓' : ''}`;
         hint.textContent = lesson.imported
@@ -104,7 +109,8 @@
       updateLocal(null);
       loadingButtons.forEach(b => { b.disabled = true; });
       status.textContent = '正在查看本机书页…';
-      library.get(book.id).then(updateLocal).catch(err => { if (alive) { updateLocal(null); status.textContent = err.message; } });
+      library.open(book.id, text => { if (alive) status.textContent = text; }).then(updateLocal)
+        .catch(err => { if (alive) { updateLocal(null); status.textContent = err.message; } });
       main.append(h('div', { class: 'raz-detail' },
         h('div', { class: 'raz-detail-icon' }, book.icon),
         h('p', { class: 'raz-label' }, book.review ? 'Review words · 复习词' : 'Focus words · 目标词'), words, actions,

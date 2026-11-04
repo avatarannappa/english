@@ -3,6 +3,8 @@
   const MAX_PAGES = 40;
   const MAX_BYTES = 30 * 1024 * 1024;
   let dbPromise;
+  const siteIndex = fetch('books/index.json').then(r => r.ok ? r.json() : {}).catch(() => ({}));
+  const opening = new Map();
 
   function database() {
     if (!dbPromise) {
@@ -104,18 +106,57 @@
     }
   }
 
-  async function saveBook(book) {
+  async function saveBook(book, preservePersonal = false) {
     // WebKit 的 Blob 持久化兼容：使用字节保存，读取时恢复图片。
     const persisted = { ...book, pages: await Promise.all(book.pages.map(async p => ({
       ...p, image: p.image instanceof Blob ? new Uint8Array(await p.image.arrayBuffer()) : p.image,
     }))) };
-    await request('readwrite', store => store.put(persisted));
+    if (preservePersonal) {
+      const db = await database();
+      let skipped = false;
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('books', 'readwrite');
+        const store = tx.objectStore('books');
+        const read = store.get(book.id);
+        read.onsuccess = () => {
+          // 自动下载期间家长可能导入自己的书，网站版本不能覆盖个人版本。
+          if (read.result && read.result.origin !== 'site') skipped = true;
+          else store.put(persisted);
+        };
+        tx.oncomplete = resolve;
+        tx.onabort = () => reject(new Error('内置书籍保存失败。'));
+      });
+      if (skipped) return RAZ_LIBRARY.get(book.id);
+    } else await request('readwrite', store => store.put(persisted));
     return book;
   }
 
   const revision = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
   window.RAZ_LIBRARY = {
+    siteBooks: () => siteIndex,
+    async open(id, progress = () => {}) {
+      if (opening.has(id)) return opening.get(id);
+      const task = (async () => {
+        const local = await this.get(id);
+        if (local && local.origin !== 'site') return local;
+        const entry = (await siteIndex)[id];
+        if (!entry) return local;
+        if (!/^raz-[a-z]\d+-[0-9a-f]+\.razbook\.json$/.test(entry.file) || !/^[0-9a-f]+$/.test(entry.version)) throw new Error('网站书籍目录格式错误。');
+        if (local?.siteVersion === entry.version) return local;
+        progress('正在加载网站内置书籍…');
+        try {
+          const res = await fetch(`books/${entry.file}`);
+          if (!res.ok) throw new Error('下载失败');
+          return await this.import(id, [new File([await res.blob()], entry.file, { type: 'application/json' })], progress, entry.version);
+        } catch (err) {
+          if (local) return local;
+          throw new Error('内置书籍加载失败，请联网后重新打开这本书。');
+        }
+      })();
+      opening.set(id, task);
+      try { return await task; } finally { opening.delete(id); }
+    },
     async get(id) {
       const book = await request('readonly', store => store.get(id));
       if (!book) return book;
@@ -154,9 +195,9 @@
       const pages = book.pages.map((p, i) => ({ ...p, text: edits[i].text.trim(), include: !!edits[i].include }));
       const analysis = RAZ_CONTENT.analyze(pages, RAZ_BOOKS.find(b => b.id === id)?.words || [], selectedWords);
       if (analysis.words.length !== new Set(selectedWords).size) throw new Error('练习词与最新文字不一致，请更新词表后再保存。');
-      return saveBook({ ...book, pages, analysis, revision: revision(), reviewed: true });
+      return saveBook({ ...book, pages, analysis, revision: revision(), reviewed: true, origin: 'personal' });
     },
-    async import(id, files, progress = () => {}) {
+    async import(id, files, progress = () => {}, siteVersion) {
       const list = [...files];
       if (!list.length) throw new Error('请选择 PDF 或图片书页。');
       if (list.reduce((sum, f) => sum + f.size, 0) > MAX_BYTES) throw new Error('一次最多导入 30 MB，请缩小文件后再试。');
@@ -177,7 +218,9 @@
         }
         const analysis = RAZ_CONTENT.analyze(pages, RAZ_BOOKS.find(b => b.id === id)?.words || [], bundle.selectedWords);
         if (!analysis.words.length || analysis.words.length > 16) throw new Error('书籍包中需有 1–16 个有效练习词。');
-        return saveBook({ id, pages, analysis, revision: revision(), importedAt: Date.now(), reviewed: !!bundle.reviewed });
+        return saveBook({ id, pages, analysis, revision: siteVersion ? `site-${siteVersion}` : revision(),
+          importedAt: Date.now(), reviewed: !!bundle.reviewed, origin: siteVersion ? 'site' : 'personal', siteVersion,
+        }, !!siteVersion);
       }
       const ocr = createRazOCR();
       const meta = RAZ_BOOKS.find(b => b.id === id);
@@ -201,7 +244,7 @@
       }
       progress('正在保存到本机…');
       // 所有书页处理成功后一次性替换；失败时保留之前的书。
-      return saveBook({ id, pages, importedAt: Date.now(), revision: revision(), reviewed: false,
+      return saveBook({ id, pages, importedAt: Date.now(), revision: revision(), reviewed: false, origin: 'personal',
         analysis: RAZ_CONTENT.analyze(pages, meta?.words || []),
       });
     },
