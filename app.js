@@ -978,7 +978,9 @@
   const GLYPH_FONT = '"Chalkboard SE", "Comic Sans MS", "Arial Rounded MT Bold", sans-serif';
   const CELL = 6; // 判定网格的格子大小（CSS 像素）
 
-  const Trace = (chars, start) => screen('Write', '写', main => {
+  // chars 可以是字母字符串，也可以是 RAZ 目标词数组；共用描红和触控处理。
+  const Trace = (chars, start, options = {}) => screen('Write', options.wordMode ? '写单词' : '写', main => {
+    const wordMode = !!options.wordMode;
     let i = start;
     let color = CRAYONS[0];
     let passed = false;
@@ -1000,6 +1002,10 @@
     }));
 
     const ch = () => chars[i];
+    const doneKey = word => wordMode ? `${options.progressKey}:${word}` : `w:${word}`;
+    const picker = h('div', { class: 'write-word-picker' });
+    const instruction = h('p', { class: 'write-word-tip' }, '沿虚线描完整单词，每个字母都要描。');
+    const intro = () => wordMode ? ch() : traceIntro(ch());
     const dpr = () => Math.min(window.devicePixelRatio || 1, 3);
 
     // 字形摆放（CSS 像素）。小写字母用统一基线，方便看出高低
@@ -1017,7 +1023,13 @@
       const lines = lower
         ? [base - cap, base - xh, base, base + size * 0.22]
         : [base - cap, base - cap / 2, base];
-      return { size, x: w / 2, base, lines };
+      // 每个字母各自统计覆盖率，防止只描几个大字母就完成整词。
+      const left = w / 2 - ctx.measureText(c).width / 2;
+      const ranges = [...c].map((_, j) => [
+        left + ctx.measureText(c.slice(0, j)).width,
+        left + ctx.measureText(c.slice(0, j + 1)).width,
+      ]);
+      return { size, x: w / 2, base, lines, ranges };
     }
 
     function fillGlyph(ctx, g, style) {
@@ -1075,12 +1087,31 @@
       const outside = distance(mask, gw, gh, 0);
       let maxIn = 1;
       for (let j = 0; j < mask.length; j++) if (mask[j]) maxIn = Math.max(maxIn, inside[j]);
+      const groups = wordMode ? g.ranges.map(() => []) : [];
+      const letterFor = j => g.ranges.findIndex(([left, right]) => {
+        const x = (j % gw + 0.5) * CELL;
+        return x >= left && x < right;
+      });
+      const letterWidths = groups.map(() => 1);
+      if (wordMode) for (let j = 0; j < mask.length; j++) {
+        if (!mask[j]) continue;
+        const letter = letterFor(j);
+        if (letter >= 0) letterWidths[letter] = Math.max(letterWidths[letter], inside[j]);
+      }
       const core = [];
-      for (let j = 0; j < mask.length; j++) if (mask[j] && inside[j] >= Math.max(1, maxIn * 0.45)) core.push(j);
+      for (let j = 0; j < mask.length; j++) {
+        if (!mask[j]) continue;
+        const letter = wordMode ? letterFor(j) : -1;
+        const width = letter >= 0 ? letterWidths[letter] : maxIn;
+        if (inside[j] >= Math.max(1, width * 0.45)) {
+          core.push(j);
+          if (letter >= 0) groups[letter].push(j);
+        }
+      }
       const far = new Uint8Array(gw * gh);
       for (let j = 0; j < mask.length; j++) far[j] = !mask[j] && outside[j] > maxIn * 1.6 ? 1 : 0;
       grid.width = gw; // 清空并重置变换，留给墨水采样用
-      geo = { gw, gh, grid, core, far, brush: clamp(maxIn * 2 * CELL * 0.95, 16, 80) };
+      geo = { gw, gh, grid, core, groups, far, brush: clamp(maxIn * 2 * CELL * 0.95, 16, 80) };
       clearInk();
     }
 
@@ -1109,7 +1140,7 @@
 
     function score() {
       if (!geo || passed) return;
-      const { gw, gh, grid, core, far } = geo;
+      const { gw, gh, grid, core, groups, far } = geo;
       const gx = grid.getContext('2d', { willReadFrequently: true });
       gx.clearRect(0, 0, gw, gh);
       gx.drawImage(ink, 0, 0, gw, gh);
@@ -1124,7 +1155,9 @@
           if (far[j]) outside++;
         }
       }
-      const coverage = core.length ? covered / core.length : 0;
+      const letterCoverage = groups.map(group => group.length
+        ? group.filter(j => a[j * 4 + 3] > 40).length / group.length : 0);
+      const coverage = wordMode ? Math.min(...letterCoverage) : core.length ? covered / core.length : 0;
       const messy = inked ? outside / inked : 0;
       bar.style.width = `${Math.min(100, (coverage / 0.8) * 100)}%`;
       bar.style.background = messy > 0.25 ? '#ffb74d' : '';
@@ -1137,10 +1170,13 @@
       if (s.coverage >= 0.8 && s.messy <= 0.25) {
         passed = true;
         paper.classList.add('ok');
-        store.done[`w:${ch()}`] = true;
+        const alreadyDone = !!store.done[doneKey(ch())];
+        store.done[doneKey(ch())] = true;
+        if (wordMode && chars.every(word => store.done[doneKey(word)])) store.done[options.progressKey] = true;
         save();
-        addStar(1);
-        talk(cheer(paper), 300, spokenChar(ch()));
+        if (!wordMode || !alreadyDone) addStar(1);
+        if (wordMode) renderPicker();
+        talk(cheer(paper), 300, wordMode ? ch() : spokenChar(ch()));
         if (i < chars.length - 1) bump(next);
       } else if (s.coverage >= 0.8) {
         talk('Stay on the line!');
@@ -1148,6 +1184,7 @@
     }
 
     function clearInk() {
+      strokes.clear();
       ink.getContext('2d').clearRect(0, 0, ink.width, ink.height);
       passed = false;
       paper.classList.remove('ok');
@@ -1205,11 +1242,22 @@
     ink.addEventListener('pointercancel', end);
 
     function draw(intro = true) {
-      setTitle(`Write ${ch()}`, '写');
+      setTitle(`Write ${ch()}`, wordMode ? `${options.label} · ${i + 1}/${chars.length}` : '写');
       prev.disabled = i === 0;
       next.disabled = i === chars.length - 1;
       layout();
-      if (intro) talk(traceIntro(ch()));
+      if (wordMode) renderPicker();
+      if (intro) talk(wordMode ? ch() : traceIntro(ch()));
+    }
+
+    function renderPicker() {
+      picker.replaceChildren(...chars.map((word, j) => h('button', {
+        class: `btn write-target ${i === j ? 'current' : ''}`,
+        'data-word': word,
+        'aria-label': `Write ${word}`,
+        'aria-pressed': i === j ? 'true' : 'false',
+        onclick: () => { if (j !== i) { i = j; sfx.tap(); draw(); } },
+      }, word, store.done[doneKey(word)] ? ' ✓' : '')));
     }
 
     function move(d) {
@@ -1228,16 +1276,17 @@
     ro.observe(paper);
     onLeave(() => { ro.disconnect(); clearTimeout(resizeTimer); });
 
+    if (wordMode) main.append(picker, instruction);
     main.append(paper, h('div', { class: 'toolbar' },
       prev,
-      h('button', { class: 'btn big', onclick: () => talk(spokenChar(ch())) }, '🔊'),
+      h('button', { class: 'btn big', onclick: () => talk(wordMode ? ch() : spokenChar(ch())), 'aria-label': 'Listen to writing target' }, '🔊'),
       crayons,
       h('button', { class: 'btn big', onclick: () => { sfx.tap(); clearInk(); } }, '🧽'),
       next,
     ));
     // 等布局完成后再画，第一次需要尺寸
     requestAnimationFrame(() => draw(false));
-    talk(traceIntro(ch()));
+    talk(intro());
   });
 
   // ---------- 贴纸 ----------
@@ -1349,7 +1398,7 @@
   // ---------- 启动 ----------
 
   const { shelf: RazShelf } = window.createRazViews({
-    h, screen, go, back, talk, stopTalk, onLeave, store, save, Quiz, Speak,
+    h, screen, go, back, talk, stopTalk, onLeave, store, save, Quiz, Speak, Trace,
     addStar, cheer, overlay, closeOverlay, parentGate, sfx,
   });
 

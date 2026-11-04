@@ -1,6 +1,6 @@
 (() => {
   window.createRazViews = api => {
-    const { h, screen, go, talk, stopTalk, onLeave, store, save, Quiz, Speak,
+    const { h, screen, go, talk, stopTalk, onLeave, store, save, Quiz, Speak, Trace,
       addStar, cheer, overlay, closeOverlay, parentGate, sfx } = api;
     const { RAZ_BOOKS: books, RAZ_EXAMPLES: examples, RAZ_LIBRARY: library, PHRASES: P } = window;
     let selectedSet = 'A';
@@ -19,7 +19,7 @@
           selectedSet = set; sfx.tap(); render();
         }, { class: `btn pill ${selectedSet === set ? 'on' : ''}` })));
         grid.replaceChildren(...books.filter(b => b.set === selectedSet).map(b => {
-          const done = store.done[`raz:practice:${b.id}`] || store.done[`raz:local:${b.id}`];
+          const done = store.done[`raz:practice:${b.id}`] || store.done[`raz:local:${b.id}`] || store.done[`raz:write:${b.id}`];
           return h('button', { class: 'choice raz-book', 'data-book': b.id, onclick: () => {
             sfx.tap(); stopTalk(); go(detail(b));
           } }, h('span', { class: 'raz-number' }, `${b.set}${b.number}${done ? ' ⭐' : ''}`),
@@ -27,7 +27,7 @@
           h('span', { class: 'raz-book-words' }, b.words.join(' · ')));
         }));
       };
-      main.append(tabs, h('p', { class: 'raz-intro' }, '从 Set A 开始，每次一本：认词 → 读短句 → 找词 → 跟读。'), grid);
+      main.append(tabs, h('p', { class: 'raz-intro' }, '从 Set A 开始，每次一本：认词 → 读短句 → 找词 → 跟读 → 写词。'), grid);
       render();
     });
 
@@ -62,12 +62,15 @@
         button('📚 Word practice', () => go(reader(book, practicePages(book), 'practice')), { 'data-action': 'practice' }),
         button('🎯 Find words', () => go(wordQuiz(book)), { 'data-action': 'quiz' }),
         button('🎤 Say it', () => go(Speak({ name: book.title, zh: '高频词', words: wordsFor(book) })), { 'data-action': 'speak' }),
+        button(`✏️ Write words${store.done[`raz:write:${book.id}`] ? ' ✓' : ''}`, () => go(Trace(book.words, 0, {
+          wordMode: true, progressKey: `raz:write:${book.id}`, label: `${book.set}${book.number}`,
+        })), { 'data-action': 'write' }),
         localButton,
       );
       main.append(h('div', { class: 'raz-detail' },
         h('div', { class: 'raz-detail-icon' }, book.icon),
         h('p', { class: 'raz-label' }, book.review ? 'Review words · 复习词' : 'Focus words · 目标词'), words, actions,
-        h('p', { class: 'raz-intro' }, 'Word practice 是自编配套短句；RAZ 正版书页由家长从官方打开或导入。'),
+        h('p', { class: 'raz-intro' }, 'Word practice 是自编配套短句；Write words 练习描写目标词；RAZ 正版书页由家长从官方打开或导入。'),
         h('div', { class: 'raz-parent' }, status,
           button('导入我的 PDF / 图片', () => parentGate(() => importDialog(book, updateLocal)), { class: 'btn raz-parent-button' }),
           button('RAZ 官方书页 ↗', () => parentGate(() => officialDialog(book)), { class: 'btn raz-parent-button' }),
